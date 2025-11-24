@@ -42,6 +42,7 @@ def main():
         
         print("Display test complete! Image will stay for 5 seconds...")
         time.sleep(5)
+        epd.Clear()
         
         logging.info("Putting display to sleep...")
         epd.sleep()
