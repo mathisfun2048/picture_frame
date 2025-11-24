@@ -29,13 +29,15 @@ def main():
         # Use default font (no external font file needed)
         # If you want a specific font, we'll add it later
         draw.text((10, 10), 'E-Ink Display Test', fill=0)
-        draw.text((10, 40), 'Picture Frame v0.1', fill=0)
+        draw.text((50, 200), 'Hey Calista!', fill=0)
         draw.text((10, 70), '400x300 pixels', fill=0)
         
         # Draw shapes
+        '''
         draw.rectangle((10, 100, 100, 150), outline=0)
         draw.ellipse((120, 100, 170, 150), outline=0)
         draw.line((10, 170, 150, 170), fill=0, width=3)
+        '''
         
         logging.info("Displaying image...")
         epd.display(epd.getbuffer(image))
