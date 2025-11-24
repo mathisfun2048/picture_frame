@@ -1,0 +1,41 @@
+cd ~/picture_frame
+nano .gitignore
+```
+
+Add this:
+```
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+images/queue/*
+!images/queue/.gitkeep
+images/processed/*
+!images/processed/.gitkeep
+
+# Keep lib but could add if you want to track it
+# lib/
+
