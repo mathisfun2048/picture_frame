@@ -13,6 +13,7 @@ from display_controller import EInkDisplay
 from image_processor import ImageProcessor
 from slideshow import Slideshow
 from transfer import ImageTransfer
+from button_handler import ButtonHandler
 
 # Setup logging
 logging.basicConfig(
@@ -70,8 +71,16 @@ class PictureFrame:
         
         self.display = EInkDisplay()
         
+        # Initialize button handler
+        self.button = ButtonHandler(
+            button_pin=18,
+            pull_up=True,  # CHANGE THIS if your button connects to 3.3V instead of GND
+            debounce_ms=300
+        )
+        
         self.running = False
         self.interval = self.config['display']['interval_seconds']
+        self.skip_to_next = False  # Flag to skip current wait
         
         # Setup signal handlers for clean shutdown
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -97,6 +106,11 @@ class PictureFrame:
             logger.error(f"Invalid JSON in config file: {e}")
             raise
     
+    def _button_pressed(self):
+        """Callback when button is pressed - skip to next image"""
+        logger.info("Button press detected - skipping to next image")
+        self.skip_to_next = True
+    
     def start(self):
         """Start the picture frame slideshow"""
         try:
@@ -107,6 +121,10 @@ class PictureFrame:
             if self.config['startup']['clear_display_on_start']:
                 logger.info("Clearing display...")
                 self.display.clear()
+            
+            # Initialize button
+            logger.info("Setting up button...")
+            self.button.setup(self._button_pressed)
             
             # Scan for images
             logger.info("Scanning for images...")
@@ -140,6 +158,7 @@ class PictureFrame:
         """Main slideshow loop"""
         logger.info("Starting slideshow loop")
         logger.info(f"Image interval: {self.interval} seconds")
+        logger.info("Press button on GPIO 18 to skip to next image")
         
         while self.running:
             try:
@@ -159,11 +178,16 @@ class PictureFrame:
                 self.display.display_image(processed_img)
                 
                 logger.info(f"Image {self.slideshow.get_current_index()}/{self.slideshow.get_image_count()} displayed")
-                logger.info(f"Waiting {self.interval} seconds until next image...")
+                logger.info(f"Waiting {self.interval} seconds until next image (or press button to skip)...")
                 
-                # Wait for next image (check running flag frequently for clean shutdown)
+                # Reset skip flag
+                self.skip_to_next = False
+                
+                # Wait for next image (check skip flag and running flag frequently)
                 for _ in range(self.interval):
-                    if not self.running:
+                    if not self.running or self.skip_to_next:
+                        if self.skip_to_next:
+                            logger.info("Skipping to next image...")
                         break
                     time.sleep(1)
                 
@@ -183,10 +207,16 @@ class PictureFrame:
         self.running = False
         
         try:
+            self.button.cleanup()
+            logger.info("Button cleaned up")
+        except Exception as e:
+            logger.error(f"Error cleaning up button: {e}")
+        
+        try:
             self.display.sleep()
             logger.info("Display put to sleep")
         except Exception as e:
-            logger.error(f"Error during shutdown: {e}")
+            logger.error(f"Error during display shutdown: {e}")
         
         logger.info("=" * 60)
         logger.info("Picture frame stopped")
