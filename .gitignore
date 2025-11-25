@@ -30,18 +30,20 @@ build/
 .DS_Store
 Thumbs.db
 
-# Image directories - keep structure but ignore contents
-images/queue/*
-!images/queue/.gitkeep
+# Image directories - keep structue
+#  images/queue/*
+#  !images/queue/.gitkeep
 
 images/processed/*
 !images/processed/.gitkeep
+
 
 # Project specific
-images/queue/*
-!images/queue/.gitkeep
-images/processed/*
-!images/processed/.gitkeep
+## images/queue/*
+## !images/queue/.gitkeep
+## images/processed/*
+## !images/processed/.gitkeep
+
 
 # Keep lib but could add if you want to track it
 # lib/
