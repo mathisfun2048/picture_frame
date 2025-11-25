@@ -124,7 +124,7 @@ class PictureFrame:
             
             # Initialize button
             logger.info("Setting up button...")
-            self.button.setup(self._button_pressed)
+            #self.button.setup(self._button_pressed)
             
             # Scan for images
             logger.info("Scanning for images...")
