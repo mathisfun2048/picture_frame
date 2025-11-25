@@ -3,7 +3,6 @@
 import RPi.GPIO as GPIO
 import time
 import logging
-import threading
 
 logger = logging.getLogger(__name__)
 
@@ -81,18 +80,18 @@ class ButtonHandler:
         Handles debouncing and calls user callback
         """
         current_time = time.time()
-        
+
         # Additional software debouncing
         if current_time - self.last_press_time < (self.debounce_ms / 1000.0):
             logger.debug("Button press ignored (debounce)")
             return
-        
+
         self.last_press_time = current_time
         logger.info("Button pressed!")
-        
-        # Call user callback in a separate thread to avoid blocking
+
+        # Call user callback directly - it should be lightweight
         if self.callback:
-            threading.Thread(target=self.callback, daemon=True).start()
+            self.callback()
     
     def cleanup(self):
         """Clean up GPIO resources"""
