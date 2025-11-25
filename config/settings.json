@@ -9,6 +9,11 @@
     "brightness": 1.0,
     "sharpness": 1.0
   },
+  "button": {
+    "pin": 18,
+    "pull_up": true,
+    "debounce_ms": 300
+  },
   "directories": {
     "queue": "images/queue",
     "processed": "images/processed"
