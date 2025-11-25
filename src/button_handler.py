@@ -1,3 +1,5 @@
+# src/button_handler.py
+
 import RPi.GPIO as GPIO
 import time
 import logging
@@ -37,8 +39,17 @@ class ButtonHandler:
             callback: Function to call when button is pressed
         """
         try:
+            # Disable warnings about channels already in use
+            GPIO.setwarnings(False)
+            
             # Set up GPIO mode
             GPIO.setmode(GPIO.BCM)
+            
+            # Clean up any previous configuration on this pin
+            try:
+                GPIO.cleanup(self.button_pin)
+            except:
+                pass  # Ignore if nothing to clean up
             
             # Configure pull resistor
             pull_mode = GPIO.PUD_UP if self.pull_up else GPIO.PUD_DOWN
@@ -89,6 +100,7 @@ class ButtonHandler:
             try:
                 GPIO.remove_event_detect(self.button_pin)
                 GPIO.cleanup(self.button_pin)
+                self.initialized = False
                 logger.info("Button handler cleaned up")
             except Exception as e:
                 logger.error(f"Error cleaning up button: {e}")
