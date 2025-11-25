@@ -11,19 +11,23 @@ def main():
     print("Testing Slideshow Manager")
     print("=" * 50)
     
-    # Create slideshow
+    # Get project root directory
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    queue_dir = os.path.join(project_root, 'images', 'queue')
+    
+    # Create slideshow with absolute path
     slideshow = Slideshow(
-        image_dir='images/queue',
+        image_dir=queue_dir,
         loop=True
     )
     
     # Scan for images
-    print("\n1. Scanning for images...")
+    print(f"\n1. Scanning for images in {queue_dir}...")
     count = slideshow.scan_images()
     print(f"Found {count} images")
     
     if count == 0:
-        print("\nNo images found! Add some images to images/queue/")
+        print(f"\nNo images found in {queue_dir}")
         print("Supported formats: jpg, png, heic")
         return
     
