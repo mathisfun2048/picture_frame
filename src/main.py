@@ -1,3 +1,5 @@
+# src/main.py
+
 import sys
 import os
 import json
@@ -5,6 +7,7 @@ import time
 import signal
 import logging
 from pathlib import Path
+import RPi.GPIO as GPIO
 
 # Add src to path
 sys.path.insert(0, os.path.dirname(__file__))
@@ -13,7 +16,6 @@ from display_controller import EInkDisplay
 from image_processor import ImageProcessor
 from slideshow import Slideshow
 from transfer import ImageTransfer
-from button_handler import ButtonHandler
 
 # Setup logging
 logging.basicConfig(
@@ -71,16 +73,12 @@ class PictureFrame:
         
         self.display = EInkDisplay()
         
-        # Initialize button handler
-        self.button = ButtonHandler(
-            button_pin=18,
-            pull_up=True,  # CHANGE THIS if your button connects to 3.3V instead of GND
-            debounce_ms=300
-        )
-        
         self.running = False
         self.interval = self.config['display']['interval_seconds']
-        self.skip_to_next = False  # Flag to skip current wait
+        
+        # Button setup (GPIO 18, physical pin 12)
+        self.button_pin = 18
+        self.button_initialized = False
         
         # Setup signal handlers for clean shutdown
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -106,10 +104,24 @@ class PictureFrame:
             logger.error(f"Invalid JSON in config file: {e}")
             raise
     
-    def _button_pressed(self):
-        """Callback when button is pressed - skip to next image"""
-        logger.info("Button press detected - skipping to next image")
-        self.skip_to_next = True
+    def _setup_button(self):
+        """Simple button setup with polling"""
+        try:
+            GPIO.setwarnings(False)
+            GPIO.setmode(GPIO.BCM)
+            GPIO.setup(self.button_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+            self.button_initialized = True
+            logger.info(f"Button setup complete on GPIO {self.button_pin}")
+        except Exception as e:
+            logger.error(f"Failed to setup button: {e}")
+            logger.warning("Continuing without button functionality")
+    
+    def _is_button_pressed(self):
+        """Check if button is currently pressed"""
+        if not self.button_initialized:
+            return False
+        # Button connects to ground, so pressed = LOW (0)
+        return GPIO.input(self.button_pin) == 0
     
     def start(self):
         """Start the picture frame slideshow"""
@@ -122,9 +134,8 @@ class PictureFrame:
                 logger.info("Clearing display...")
                 self.display.clear()
             
-            # Initialize button
-            logger.info("Setting up button...")
-            #self.button.setup(self._button_pressed)
+            # Setup button
+            self._setup_button()
             
             # Scan for images
             logger.info("Scanning for images...")
@@ -158,7 +169,8 @@ class PictureFrame:
         """Main slideshow loop"""
         logger.info("Starting slideshow loop")
         logger.info(f"Image interval: {self.interval} seconds")
-        logger.info("Press button on GPIO 18 to skip to next image")
+        if self.button_initialized:
+            logger.info(f"Press button on GPIO {self.button_pin} to skip to next image")
         
         while self.running:
             try:
@@ -178,17 +190,19 @@ class PictureFrame:
                 self.display.display_image(processed_img)
                 
                 logger.info(f"Image {self.slideshow.get_current_index()}/{self.slideshow.get_image_count()} displayed")
-                logger.info(f"Waiting {self.interval} seconds until next image (or press button to skip)...")
+                logger.info(f"Waiting {self.interval} seconds until next image...")
                 
-                # Reset skip flag
-                self.skip_to_next = False
-                
-                # Wait for next image (check skip flag and running flag frequently)
-                for _ in range(self.interval):
-                    if not self.running or self.skip_to_next:
-                        if self.skip_to_next:
-                            logger.info("Skipping to next image...")
+                # Wait for interval, checking button every second
+                for i in range(self.interval):
+                    if not self.running:
                         break
+                    
+                    # Check if button is pressed
+                    if self._is_button_pressed():
+                        logger.info("Button pressed - skipping to next image!")
+                        time.sleep(0.3)  # Simple debounce - wait for release
+                        break
+                    
                     time.sleep(1)
                 
             except KeyboardInterrupt:
@@ -207,8 +221,9 @@ class PictureFrame:
         self.running = False
         
         try:
-            self.button.cleanup()
-            logger.info("Button cleaned up")
+            if self.button_initialized:
+                GPIO.cleanup(self.button_pin)
+                logger.info("Button GPIO cleaned up")
         except Exception as e:
             logger.error(f"Error cleaning up button: {e}")
         
