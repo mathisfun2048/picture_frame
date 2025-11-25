@@ -30,7 +30,7 @@ def main():
         print("\n1. Processing image...")
         processed_img = processor.process_image(
             image_path,
-            dither_mode='ordered',  # Try the retro look!
+            dither_mode='threshold',  # Try the retro look!
             contrast=1.3,
             brightness=1.1
         )
