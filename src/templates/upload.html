@@ -557,36 +557,60 @@
         
         // Live updates using Server-Sent Events
         let currentImage = {{ ('\"' + current_image + '\"') if current_image else 'null' }};
-        
-        const eventSource = new EventSource('/stream');
-        
-        eventSource.onmessage = function(event) {
-            const data = JSON.parse(event.data);
+
+        function setupSSE() {
+            const eventSource = new EventSource('/stream');
             
-            if (data.current_image && data.current_image !== currentImage) {
-                currentImage = data.current_image;
-                
-                // Update preview image
-                const preview = document.getElementById('current-preview');
-                if (preview) {
-                    preview.src = '/current-image?t=' + Date.now();
+            eventSource.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.error) {
+                        console.error('SSE error:', data.error);
+                        return;
+                    }
+                    
+                    if (data.current_image && data.current_image !== currentImage) {
+                        console.log('Image changed:', currentImage, '->', data.current_image);
+                        currentImage = data.current_image;
+                        
+                        // Update preview image
+                        const preview = document.getElementById('current-preview');
+                        if (preview) {
+                            preview.classList.add('loading');
+                            preview.src = '/current-image?t=' + Date.now();
+                            preview.onload = function() {
+                                preview.classList.remove('loading');
+                            };
+                        } else {
+                            // No preview exists, reload page to show it
+                            location.reload();
+                        }
+                        
+                        // Update name
+                        const nameElem = document.getElementById('current-name');
+                        if (nameElem) {
+                            nameElem.textContent = currentImage;
+                        }
+                        
+                        // Update library highlighting
+                        updateLibraryHighlight(currentImage);
+                    }
+                } catch (e) {
+                    console.error('Error parsing SSE data:', e);
                 }
-                
-                // Update name
-                const nameElem = document.getElementById('current-name');
-                if (nameElem) {
-                    nameElem.textContent = currentImage;
-                }
-                
-                // Update library highlighting
-                updateLibraryHighlight(currentImage);
-            }
-        };
-        
-        eventSource.onerror = function() {
-            console.log('SSE connection lost, will retry...');
-        };
-        
+            };
+            
+            eventSource.onerror = function(e) {
+                console.log('SSE connection error, reconnecting...');
+                eventSource.close();
+                setTimeout(setupSSE, 3000); // Reconnect after 3 seconds
+            };
+        }
+
+        // Start SSE
+        setupSSE();
+
         function updateLibraryHighlight(newImage) {
             // Remove all current indicators
             document.querySelectorAll('.image-item').forEach(item => {
@@ -605,16 +629,27 @@
                 newCurrentItem.insertBefore(indicator, newCurrentItem.querySelector('.btn-danger').parentElement);
             }
         }
-        
+
         // Fallback polling if SSE doesn't work
         setInterval(() => {
             fetch('/status')
                 .then(r => r.json())
                 .then(data => {
                     // Update count
-                    document.getElementById('image-count').textContent = data.image_count;
-                });
-        }, 10000); // Every 10 seconds
+                    const countElem = document.getElementById('image-count');
+                    if (countElem) {
+                        countElem.textContent = data.image_count;
+                    }
+                    
+                    // Check if image changed (fallback if SSE fails)
+                    if (data.current_image && data.current_image !== currentImage) {
+                        console.log('Fallback update detected');
+                        currentImage = data.current_image;
+                        location.reload(); // Just reload if SSE isn't working
+                    }
+                })
+                .catch(e => console.error('Polling error:', e));
+        }, 5000); // Every 5 seconds
     </script>
 </body>
 </html>

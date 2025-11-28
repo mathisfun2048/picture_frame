@@ -208,21 +208,51 @@ def get_status():
 @app.route('/stream')
 @auth.login_required
 def stream():
-    """Server-Sent Events stream for live updates"""
+    """Server-Sent Events stream for live updates (no auth to prevent blocking)"""
     def event_stream():
+        # Check auth via query parameter
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            yield f"data: {json.dumps({'error': 'unauthorized'})}\n\n"
+            return
+        
         last_image = None
+        last_timestamp = 0
+        
         while True:
-            current = get_current_image()
-            current_name = Path(current).name if current else None
-            
-            # Only send update if image changed
-            if current_name != last_image:
-                last_image = current_name
-                yield f"data: {json.dumps({'current_image': current_name})}\n\n"
-            
-            time.sleep(2)  # Check every 2 seconds
+            try:
+                # Read state file
+                if STATE_FILE.exists():
+                    with open(STATE_FILE, 'r') as f:
+                        state = json.load(f)
+                        current_image = state.get('current_image')
+                        timestamp = state.get('timestamp', 0)
+                        
+                        if current_image:
+                            current_name = Path(current_image).name
+                            
+                            # Send update if image changed OR timestamp changed
+                            if current_name != last_image or timestamp != last_timestamp:
+                                last_image = current_name
+                                last_timestamp = timestamp
+                                
+                                data = json.dumps({
+                                    'current_image': current_name,
+                                    'timestamp': timestamp
+                                })
+                                yield f"data: {data}\n\n"
+                
+                time.sleep(1)  # Check every second for faster updates
+                
+            except Exception as e:
+                logger.error(f"SSE stream error: {e}")
+                time.sleep(2)
     
-    return Response(event_stream(), mimetype='text/event-stream')
+    response = Response(event_stream(), mimetype='text/event-stream')
+    response.headers['Cache-Control'] = 'no-cache'
+    response.headers['X-Accel-Buffering'] = 'no'
+    return response
+
 
 
 if __name__ == '__main__':
