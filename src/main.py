@@ -8,6 +8,7 @@ import signal
 import logging
 from pathlib import Path
 import RPi.GPIO as GPIO
+import json
 
 # Add src to path
 sys.path.insert(0, os.path.dirname(__file__))
@@ -165,6 +166,20 @@ class PictureFrame:
             logger.error(f"Error starting picture frame: {e}", exc_info=True)
             self.shutdown()
     
+    def _save_state(self, current_image):
+        """Save current state for web UI"""
+        try:
+            state_file = Path(__file__).parent.parent / 'current_state.json'
+            with open(state_file, 'w') as f:
+                json.dump({
+                    'current_image': str(current_image),
+                    'timestamp': time.time()
+                }, f)
+        except Exception as e:
+            logger.error(f"Failed to save state: {e}")
+
+
+
     def _run_slideshow(self):
         """Main slideshow loop"""
         logger.info("Starting slideshow loop")
@@ -194,10 +209,15 @@ class PictureFrame:
                 
                 # Display on e-ink
                 self.display.display_image(processed_img)
-                
                 logger.info(f"Image {self.slideshow.get_current_index()}/{self.slideshow.get_image_count()} displayed")
                 logger.info(f"Waiting {self.interval} seconds until next image...")
                 
+                # Save current state for web UI
+                self._save_state(image_path)
+                logger.info(f"Image {self.slideshow.get_current_index()}/{self.slideshow.get_image_count()} displayed")
+                
+
+
                 # Wait for interval, checking button every second
                 for i in range(self.interval):
                     if not self.running:
