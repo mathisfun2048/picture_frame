@@ -82,7 +82,6 @@ class Slideshow:
         if self.current_index >= len(self.image_list):
             if self.loop:
                 logger.info("Reached end of slideshow, looping back to start")
-                self.scan_images()
                 self.current_index = 0
             else:
                 logger.info("Reached end of slideshow")
