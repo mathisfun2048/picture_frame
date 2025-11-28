@@ -174,6 +174,12 @@ class PictureFrame:
         
         while self.running:
             try:
+                # Rescan for new images every loop iteration
+                current_count = self.slideshow.get_image_count()
+                new_count = self.slideshow.scan_images()
+                if new_count != current_count:
+                    logger.info(f"Found {new_count - current_count} new images!")
+        
                 # Get next image
                 image_path = self.slideshow.get_next_image()
                 
