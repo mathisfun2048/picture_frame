@@ -329,7 +329,12 @@
         .drag-handle:active {
             cursor: grabbing;
         }
-        
+
+        .sortable-ghost {
+            opacity: 0.4;
+            background: var(--blue);
+        }
+
         .image-name {
             flex: 1;
             font-size: 14px;
@@ -493,7 +498,7 @@
         </div>
     </div>
     
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script>
         // File input handling
         const fileInput = document.getElementById('file-input');
@@ -534,10 +539,11 @@
             new Sortable(imageList, {
                 animation: 150,
                 handle: '.drag-handle',
+                ghostClass: 'sortable-ghost',
                 onEnd: function(evt) {
                     const items = imageList.querySelectorAll('.image-item');
                     const newOrder = Array.from(items).map(item => item.dataset.filename);
-                    
+
                     fetch('/reorder', {
                         method: 'POST',
                         headers: {
@@ -548,8 +554,19 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
-                            location.reload();
+                            console.log('Reorder successful');
+                            // Update the data attributes to reflect the new order
+                            // The backend adds numeric prefixes, so we need to reload
+                            // to get the updated filenames
+                            setTimeout(() => location.reload(), 300);
+                        } else {
+                            console.error('Reorder failed:', data.error);
+                            alert('Failed to reorder images. Please try again.');
                         }
+                    })
+                    .catch(error => {
+                        console.error('Reorder error:', error);
+                        alert('Failed to reorder images. Please try again.');
                     });
                 }
             });
