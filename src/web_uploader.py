@@ -1,12 +1,13 @@
 # src/web_uploader.py
 
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, Response
 from flask_httpauth import HTTPBasicAuth
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 import os
 import json
 from pathlib import Path
+import time
 
 app = Flask(__name__)
 app.secret_key = 'picture_frame_secret_key_change_this'
@@ -167,6 +168,62 @@ def reorder():
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+    
+
+@app.route('/image/<filename>')
+@auth.login_required
+def serve_image(filename):
+    """Serve an image file"""
+    filename = secure_filename(filename)
+    file_path = UPLOAD_FOLDER / filename
+    
+    if file_path.exists():
+        return send_file(file_path, mimetype='image/jpeg')
+    return "Image not found", 404
+
+@app.route('/current-image')
+@auth.login_required
+def get_current_image_preview():
+    """Get the currently displaying image"""
+    current = get_current_image()
+    if current:
+        return send_file(current, mimetype='image/jpeg')
+    return "No image currently displaying", 404
+
+@app.route('/status')
+@auth.login_required
+def get_status():
+    """Get current status as JSON for live updates"""
+    images = get_image_list()
+    current_image = get_current_image()
+    current_name = Path(current_image).name if current_image else None
+    
+    return jsonify({
+        'current_image': current_name,
+        'image_count': len(images),
+        'images': [img.name for img in images],
+        'timestamp': time.time()
+    })
+
+@app.route('/stream')
+@auth.login_required
+def stream():
+    """Server-Sent Events stream for live updates"""
+    def event_stream():
+        last_image = None
+        while True:
+            current = get_current_image()
+            current_name = Path(current).name if current else None
+            
+            # Only send update if image changed
+            if current_name != last_image:
+                last_image = current_name
+                yield f"data: {json.dumps({'current_image': current_name})}\n\n"
+            
+            time.sleep(2)  # Check every 2 seconds
+    
+    return Response(event_stream(), mimetype='text/event-stream')
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False)

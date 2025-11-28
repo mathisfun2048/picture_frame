@@ -14,7 +14,7 @@
         
         :root {
             --dark: #3D3D3D;
-            --red: #F24B59;
+            --pink: #F549AA;
             --teal: #45C4B0;
             --blue: #408EF5;
             --orange: #F47D47;
@@ -54,6 +54,32 @@
             font-size: 15px;
         }
         
+        .live-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--teal);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: white;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
         /* Flash Messages */
         .flash-messages {
             margin-bottom: 30px;
@@ -75,7 +101,7 @@
         .flash.success {
             background: #E8F5E9;
             color: #2E7D32;
-            border-left: 4px solid var(--orange);
+            border-left: 4px solid var(--teal);
         }
         
         .flash.error {
@@ -114,26 +140,75 @@
         }
         
         /* Current Image Display */
-        .current-image {
-            background: linear-gradient(135deg, var(--blue), var(--orange));
-            color: white;
-            padding: 24px;
+        .current-display {
+            background: white;
             border-radius: 12px;
-            text-align: center;
+            padding: 30px;
             margin-bottom: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            border: 1px solid var(--border);
         }
         
-        .current-image-label {
-            font-size: 13px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            opacity: 0.9;
-            margin-bottom: 8px;
+        .current-display-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .current-display-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--dark);
+        }
+        
+        .image-preview-container {
+            position: relative;
+            width: 100%;
+            padding-top: 75%; /* 4:3 aspect ratio like the e-ink display */
+            background: #F5F5F5;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px solid var(--border);
+        }
+        
+        .image-preview {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            transition: opacity 0.5s ease;
+        }
+        
+        .image-preview.loading {
+            opacity: 0.5;
+        }
+        
+        .no-image-placeholder {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #999;
+        }
+        
+        .no-image-placeholder-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+            opacity: 0.3;
         }
         
         .current-image-name {
-            font-size: 20px;
-            font-weight: 600;
+            margin-top: 16px;
+            padding: 12px;
+            background: var(--light-bg);
+            border-radius: 6px;
+            font-size: 14px;
+            color: var(--dark);
+            text-align: center;
             word-break: break-all;
         }
         
@@ -154,7 +229,7 @@
         }
         
         .upload-area.dragover {
-            border-color: var(--orange);
+            border-color: var(--teal);
             background: #F0FFF7;
         }
         
@@ -242,7 +317,7 @@
         
         .image-item.current {
             background: linear-gradient(135deg, rgba(69, 196, 176, 0.1), rgba(64, 142, 245, 0.1));
-            border-left: 3px solid var(--orange);
+            border-left: 3px solid var(--teal);
         }
         
         .drag-handle {
@@ -263,7 +338,7 @@
         }
         
         .current-indicator {
-            background: var(--orange);
+            background: var(--teal);
             color: white;
             padding: 4px 10px;
             border-radius: 6px;
@@ -310,7 +385,13 @@
 <body>
     <div class="container">
         <header>
-            <h1>📷 Picture Frame</h1>
+            <h1>
+                📷 Picture Frame
+                <span class="live-indicator">
+                    <span class="live-dot"></span>
+                    LIVE
+                </span>
+            </h1>
             <p class="subtitle">Manage your e-ink display photos</p>
         </header>
         
@@ -325,12 +406,29 @@
         {% endwith %}
         
         <!-- Current Image Display -->
-        {% if current_image %}
-        <div class="current-image">
-            <div class="current-image-label">Now Displaying</div>
-            <div class="current-image-name">{{ current_image }}</div>
+        <div class="current-display">
+            <div class="current-display-header">
+                <div class="current-display-title">Now Displaying</div>
+            </div>
+            
+            <div class="image-preview-container">
+                {% if current_image %}
+                    <img src="/current-image?t={{ range(1, 1000000) | random }}" 
+                         alt="Current display" 
+                         class="image-preview"
+                         id="current-preview">
+                {% else %}
+                    <div class="no-image-placeholder">
+                        <div class="no-image-placeholder-icon">🖼️</div>
+                        <div>No image displaying</div>
+                    </div>
+                {% endif %}
+            </div>
+            
+            <div class="current-image-name" id="current-name">
+                {{ current_image if current_image else "Waiting for first image..." }}
+            </div>
         </div>
-        {% endif %}
         
         <!-- Upload Card -->
         <div class="card">
@@ -364,32 +462,34 @@
         <div class="card">
             <div class="card-title">
                 Photo Library
-                <span class="badge">{{ image_count }}</span>
+                <span class="badge" id="image-count">{{ image_count }}</span>
             </div>
             
-            {% if images %}
-                <div class="image-list" id="image-list">
-                    {% for image in images %}
-                    <div class="image-item {% if image == current_image %}current{% endif %}" data-filename="{{ image }}">
-                        <span class="drag-handle">⋮⋮</span>
-                        <span class="image-name">{{ image }}</span>
-                        {% if image == current_image %}
-                        <span class="current-indicator">Playing</span>
-                        {% endif %}
-                        <a href="/delete/{{ image }}" 
-                           onclick="return confirm('Delete {{ image }}?')">
-                            <button class="btn btn-danger" type="button">Delete</button>
-                        </a>
+            <div id="image-library">
+                {% if images %}
+                    <div class="image-list" id="image-list">
+                        {% for image in images %}
+                        <div class="image-item {% if image == current_image %}current{% endif %}" data-filename="{{ image }}">
+                            <span class="drag-handle">⋮⋮</span>
+                            <span class="image-name">{{ image }}</span>
+                            {% if image == current_image %}
+                            <span class="current-indicator">Playing</span>
+                            {% endif %}
+                            <a href="/delete/{{ image }}" 
+                               onclick="return confirm('Delete {{ image }}?')">
+                                <button class="btn btn-danger" type="button">Delete</button>
+                            </a>
+                        </div>
+                        {% endfor %}
                     </div>
-                    {% endfor %}
-                </div>
-            {% else %}
-                <div class="empty-state">
-                    <div class="empty-state-icon">🖼️</div>
-                    <p>No photos yet</p>
-                    <p style="font-size: 13px; margin-top: 8px;">Upload some photos to get started!</p>
-                </div>
-            {% endif %}
+                {% else %}
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🖼️</div>
+                        <p>No photos yet</p>
+                        <p style="font-size: 13px; margin-top: 8px;">Upload some photos to get started!</p>
+                    </div>
+                {% endif %}
+            </div>
         </div>
     </div>
     
@@ -435,11 +535,9 @@
                 animation: 150,
                 handle: '.drag-handle',
                 onEnd: function(evt) {
-                    // Get new order
                     const items = imageList.querySelectorAll('.image-item');
                     const newOrder = Array.from(items).map(item => item.dataset.filename);
                     
-                    // Send to server
                     fetch('/reorder', {
                         method: 'POST',
                         headers: {
@@ -450,13 +548,73 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
-                            // Reload to show new order
                             location.reload();
                         }
                     });
                 }
             });
         }
+        
+        // Live updates using Server-Sent Events
+        let currentImage = {{ ('\"' + current_image + '\"') if current_image else 'null' }};
+        
+        const eventSource = new EventSource('/stream');
+        
+        eventSource.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            
+            if (data.current_image && data.current_image !== currentImage) {
+                currentImage = data.current_image;
+                
+                // Update preview image
+                const preview = document.getElementById('current-preview');
+                if (preview) {
+                    preview.src = '/current-image?t=' + Date.now();
+                }
+                
+                // Update name
+                const nameElem = document.getElementById('current-name');
+                if (nameElem) {
+                    nameElem.textContent = currentImage;
+                }
+                
+                // Update library highlighting
+                updateLibraryHighlight(currentImage);
+            }
+        };
+        
+        eventSource.onerror = function() {
+            console.log('SSE connection lost, will retry...');
+        };
+        
+        function updateLibraryHighlight(newImage) {
+            // Remove all current indicators
+            document.querySelectorAll('.image-item').forEach(item => {
+                item.classList.remove('current');
+                const indicator = item.querySelector('.current-indicator');
+                if (indicator) indicator.remove();
+            });
+            
+            // Add to new current image
+            const newCurrentItem = document.querySelector(`[data-filename="${newImage}"]`);
+            if (newCurrentItem) {
+                newCurrentItem.classList.add('current');
+                const indicator = document.createElement('span');
+                indicator.className = 'current-indicator';
+                indicator.textContent = 'Playing';
+                newCurrentItem.insertBefore(indicator, newCurrentItem.querySelector('.btn-danger').parentElement);
+            }
+        }
+        
+        // Fallback polling if SSE doesn't work
+        setInterval(() => {
+            fetch('/status')
+                .then(r => r.json())
+                .then(data => {
+                    // Update count
+                    document.getElementById('image-count').textContent = data.image_count;
+                });
+        }, 10000); // Every 10 seconds
     </script>
 </body>
 </html>
