@@ -29,7 +29,7 @@ def main():
         # Use default font (no external font file needed)
         # If you want a specific font, we'll add it later
         draw.text((10, 10), 'E-Ink Display Test', fill=0)
-        draw.text((10, 40), 'Hey Calista!', fill=0, size=40)
+        draw.text((10, 40), 'Hey Calista!', fill=0)
         draw.text((10, 70), '400x300 pixels', fill=0)
         
         # Draw shapes
